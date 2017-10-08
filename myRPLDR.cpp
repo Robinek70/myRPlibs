@@ -35,37 +35,41 @@ inline int sensorLDRToLux(int adc) {
 
 // LUX
 static byte dtLux = 100;
-static uint32_t luxValue = 0;
-static int prevLuxValue;
-static uint32_t ldrLastSend;
-static MyMessage luxMsg1(5, V_LIGHT_LEVEL);
-static byte pin_ldr;
-static byte id_ldr;
+static MyMessage luxMsg1(RP_ID_LIGHT_SENSOR, V_LIGHT_LEVEL);
+static byte id_ldr = RP_ID_LIGHT_SENSOR;
 
-void rp_ldr_config(byte pin, byte id) {
-	pin_ldr = pin;
-	id_ldr = id;
+RpLdr::RpLdr(byte pin) 
+	: RpSensor() {
+	_pin = pin;
+	_id = id_ldr;
 	digitalWrite(pin, HIGH);	// pull up analog pin
+	id_ldr++;					// increace for next pir sensor
+	Serial.println("LDR pin set");
+}
+/*void RpLdr::receive(const MyMessage &message){
+	RpSensor::receive(message);	
+}*/
+void RpLdr::loop() {
+	int sensor = analogRead(_pin);
+	_luxValue = (_luxValue*dtLux + sensor*10) / (dtLux + 1);
 }
 
-inline void reportLDR(int adcValue) {
+void RpLdr::loop_1s_tick(){
+	int adcValue = _luxValue/10;	//read values were multiplied by 10
+
 	int vlux = sensorLDRToLux(adcValue);
-	if((vlux != prevLuxValue) || ((rp_now - ldrLastSend) > 60*1000UL*rp_force_time)) {
-		myresend(luxMsg1.set(vlux));
-		prevLuxValue = vlux;	
-		ldrLastSend = rp_now;
+	if((vlux != _prevLuxValue) || ((rp_now - _lastSend) > 60*1000UL*rp_force_time)) {
+		myresend(luxMsg1.setSensor(_id).set(vlux));
+		_prevLuxValue = vlux;	
+		_lastSend = rp_now;
 	}
 }
 
-void rp_ldr_presentation() {
-	present(id_ldr, S_LIGHT_LEVEL);
+void RpLdr::loop_first() {
+	_luxValue = analogRead(_pin)*10;
 }
 
-void rp_ldr_loop() {
-	int sensor = analogRead(pin_ldr);
-	luxValue = (luxValue*dtLux + sensor*10) / (dtLux + 1);
+void RpLdr::presentation() {
+	present(_id, S_LIGHT_LEVEL);
 }
 
-void rp_ldr_loop_1s_tick(){
-	reportLDR(luxValue/10);
-}

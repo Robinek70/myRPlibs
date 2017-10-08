@@ -5,26 +5,6 @@
 #include <DallasTemperature.h>
 #include <OneWire.h>
 
-#define ONE_WIRE_BUS	A5
-
-#define CHILD_ID_TEMP	30
-
-//#define EE_MAP_OFFSET	0
-
-//static bool Metric = true;
-static MyMessage tempMsg(CHILD_ID_TEMP, V_TEMP);
-
-//extern OneWire oneWire;
-
-//void rp_ds_id(byte id);
-//void rp_ds_pin(byte pin);
-//void rp_ds_before(byte pin = ONE_WIRE_BUS, byte id  = CHILD_ID_TEMP);
-//void rp_ds_presentation();
-//void rp_ds_loop();
-//void rp_ds_loop_1s_tick();
-//void rp_ds_receive(const MyMessage &message);
-//void rp_ds_report();
-
 class RpDs18b20 : public RpSensor {
 	public:
 	  RpDs18b20(byte pin);

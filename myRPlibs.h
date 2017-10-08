@@ -11,9 +11,14 @@
 #include <Arduino.h>
 #endif
 
-#define RP_ID_CUSTOM	199
-#define MAX_ATTACHED_DS18B20	4
 
+#define RP_ID_LIGHT_SENSOR	5
+#define RP_ID_DOOR			20
+#define RP_ID_PIR			21
+#define RP_ID_TEMP			30
+#define RP_ID_CUSTOM		199
+
+#define MAX_ATTACHED_DS18B20	4
 
 #define EE_TEMP_NAMES_LENGTH	15
 
@@ -56,32 +61,10 @@ class RpSensor {
 	  virtual void receive(const MyMessage &message);
 	  virtual void loop();
 	  virtual void loop_first() {};
+	  virtual void loop_1s_tick() {};
 	  virtual void presentation() {};
 	//private:
-		//int force_report_time;
 };
-
-/*
-class RpSensor {
-	public:
-		RpSensor() {
-			_rpsensors[rp_sensors_count] = this;
-			rp_sensors_count++;
-			//Serial.print("RpSensor: ");
-			//Serial.println(rp_sensors_count);
-			//rp_now = millis();
-		}
-	  virtual void receive(const MyMessage &message) {
-		  Serial.println("RpSensor receive");
-	  }
-	  virtual void loop();
-	  virtual void loop_first() {};
-	  virtual void presentation() {};
-	//private:
-		//int force_report_time;
-};
-*/
-
 
 void myresend(MyMessage &msg);
 
@@ -94,11 +77,8 @@ void rp_presentation();
 void rp_receive(const MyMessage &message);
 
 void rp_before();
-/*void rp_presentation();*/
 void rp_loop();
 void rp_loop_end();
-/*void rp_loop_1s_tick();
-void rp_receive(const MyMessage &message);*/
 void rp_reset();
 void rp_addToBuffer(const char *s) ;
 void rp_addToBuffer(int v);

@@ -6,13 +6,11 @@
 
 #define RP_DEBUG
 
-static byte id_ds = CHILD_ID_TEMP;
+static MyMessage tempMsg(RP_ID_TEMP, V_TEMP);
+static byte id_ds = RP_ID_TEMP;
 
 // Temp variables
 static OneWire* oneWire;//(ONE_WIRE_BUS);
-//static DallasTemperature* sensors;//(&oneWire);
-//static byte mapTempId[MAX_ATTACHED_DS18B20];
-//static byte tempNames[MAX_ATTACHED_DS18B20][15];
 
 static float lastTemperature[MAX_ATTACHED_DS18B20];
 static float avgTemp[MAX_ATTACHED_DS18B20];
@@ -39,7 +37,7 @@ RpDs18b20::RpDs18b20(byte pin)
 	id_ds += _numSensors;	// increace for next pir sensor
 
 	for (byte i=0; i<MAX_ATTACHED_DS18B20; i++) {      
-		_mapTempId[i] = CHILD_ID_TEMP+i;
+		_mapTempId[i] = RP_ID_TEMP+i;
 		byte id = loadState(EE_TEMP_MAP_OFFSET + i);
 		if(id!=0 && id !=255) {
 			_mapTempId[i]=id;
@@ -101,10 +99,6 @@ void RpDs18b20::receive(const MyMessage &message){
 	}
 }
 void RpDs18b20::loop() {
-	if(_lastMeasureTime + 1000 < rp_now) {
-		loop_1s_tick();
-		_lastMeasureTime = rp_now;
-	}
 }
 
 void RpDs18b20::loop_first() {

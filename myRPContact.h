@@ -1,14 +1,13 @@
-#ifndef RPLDR_h
-#define RPLDR_h
+#ifndef RPCONTACT_h
+#define RPCONTACT_h
 
 #include <Arduino.h>
 
-class RpLdr : public RpSensor {
+class RpContact : public RpSensor {
 	public:
-	  RpLdr(byte pin);
+	  RpContact(byte pin);
 	  //void receive(const MyMessage &message);
 	  void loop();
-	  void loop_first();
 	  void loop_1s_tick();
 	  void presentation();
 	private:
@@ -17,6 +16,7 @@ class RpLdr : public RpSensor {
 	  uint32_t _luxValue;
 	  int _prevLuxValue;
 	  uint32_t _lastSend;
+	  byte _prev_door;
 };
 
 #endif

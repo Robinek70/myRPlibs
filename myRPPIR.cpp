@@ -4,8 +4,8 @@
 #include <../MySensors/core/MySensorsCore.h>
 
 // LUX
-static MyMessage pirMsg(CHILD_ID_PIR, V_TRIPPED);
-static byte id_pir = CHILD_ID_PIR;
+static MyMessage pirMsg(RP_ID_PIR, V_TRIPPED);
+static byte id_pir = RP_ID_PIR;
 static int pirDelay = 10;
 
 void rp_pir_report() {

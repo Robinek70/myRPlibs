@@ -1,4 +1,4 @@
-//#include <Arduino.h> 
+#include <Arduino.h> 
 #include <myRPlibs.h>
 #include <../MySensors/core/MySensorsCore.h>
 
@@ -8,8 +8,10 @@
 
 MyMessage _msgv(RP_ID_CUSTOM, V_VAR2);
 uint32_t rp_now;
+uint32_t rp_1s_time;
 byte rp_force_time = RP_FORCE_TIME_DEFAULT;
 bool rp_first_loop = 1;
+bool rp_1s_tick = 0;
 byte rp_sensors_count = 0;
 RpSensor* _rpsensors[RP_MAX_SENSORS];
 
@@ -121,7 +123,8 @@ void rp_report() {
 enum MySensorAction {
 	PRESENTATION = 1,
 	LOOP = 2,
-	LOOP_FIRST = 3
+	LOOP_FIRST = 3,
+	LOOP_1S = 4
 };
 void iterateSenors(MySensorAction action) {
 	for(byte i=0;i<rp_sensors_count;i++) {
@@ -135,6 +138,9 @@ void iterateSenors(MySensorAction action) {
 			break;
 		case MySensorAction::LOOP_FIRST:
 			s->loop_first();
+			break;		
+		case MySensorAction::LOOP_1S:
+			s->loop_1s_tick();
 			break;
 		}
 	}
@@ -164,10 +170,17 @@ void rp_loop() {
 		rp_report();
 		iterateSenors(MySensorAction::LOOP_FIRST);
 	}
-	iterateSenors(MySensorAction::LOOP);
+	if(rp_1s_time + 1000 < rp_now) {
+		rp_1s_tick = 1;
+		rp_1s_time = rp_now;
+		iterateSenors(MySensorAction::LOOP_1S);	
+	}
+
+	iterateSenors(MySensorAction::LOOP);	
 }
 void rp_loop_end() {
 	rp_first_loop = 0;
+	rp_1s_tick = 0;
 }
 
 void rp_receive(const MyMessage &message) {
@@ -225,33 +238,16 @@ RpSensor::RpSensor() {
 			rp_sensors_count++;
 			Serial.print("RpSensor: ");
 			Serial.println(rp_sensors_count);
-			//rp_now = millis();
+
+			/*strcpy(rp_buffer, __PRETTY_FUNCTION__);
+
+			char* p = rp_buffer;//[] = {__PRETTY_FUNCTION__};//const char DSPinSet[] PROGMEM  = {"DS pin set"};
+
+			while(*(++p)!=':') {}; *p='\0';
+			Serial.println(rp_buffer);*/
 }
 void RpSensor::receive(const MyMessage &message) {
-		  Serial.println("RpSensor receive");
+		  //Serial.println("RpSensor receive");
 }
 
 void RpSensor::loop() {}
-
-//#endif
-//	end LDR
-
-
-
-/*void rp_presentation() {
-	//present(RP_ID_LDR_SENSOR, S_LIGHT_LEVEL);
-	//present(RP_ID_LDR_SENSOR, S_LIGHT_LEVEL);
-}
-
-void rp_loop() {
-	int sensor = analogRead(RP_PIN_LDR_SENSOR);
-	luxValue = (luxValue*dtLux + sensor*10) / (dtLux + 1);
-}
-
-void rp_loop_1s_tick(){
-	reportLDR(luxValue);
-}
-
-void rp_receive(const MyMessage &message) {
-
-}*/

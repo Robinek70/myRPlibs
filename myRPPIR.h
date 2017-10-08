@@ -3,8 +3,6 @@
 
 #include <Arduino.h>
 
-#define CHILD_ID_PIR	21
-
 class RpPir : public RpSensor {
 	public:
 	  RpPir(byte pin);
