@@ -3,9 +3,6 @@
 #include <Arduino.h>
 #include <../MySensors/core/MySensorsCore.h>
 
-
-#define RP_DEBUG
-
 static MyMessage tempMsg(RP_ID_TEMP, V_TEMP);
 static byte id_ds = RP_ID_TEMP;
 
@@ -21,9 +18,11 @@ static byte dtt = 4;
 //const char DSPinSet[] PROGMEM  = {"DS pin set"};
 
 
+
 RpDs18b20::RpDs18b20(byte pin) 
 	: RpSensor() {
 	_pin = pin;
+	Id = id_ds;
 	
 	Serial.println("DS pin set");
 
@@ -38,28 +37,26 @@ RpDs18b20::RpDs18b20(byte pin)
 
 	for (byte i=0; i<MAX_ATTACHED_DS18B20; i++) {      
 		_mapTempId[i] = RP_ID_TEMP+i;
-		byte id = loadState(EE_TEMP_MAP_OFFSET + i);
+		byte id = loadState(eeOffset + i);
 		if(id!=0 && id !=255) {
 			_mapTempId[i]=id;
 		}
 	}
 	_lastMeasureTime = 0;
+	MaxIds = _numSensors;
 }
-void RpDs18b20::receive(const MyMessage &message){
-	RpSensor::receive(message);
+void RpDs18b20::receiveCommon(const MyMessage &message){
 
 	char *p = (char *)message.data;
-	if(message.sensor == RP_ID_CUSTOM) {
-		if(*p=='H') {
-			myresend(_msgv.set("T[{M|N}{no,id}"));
-		}
-	}
-	if ((message.type==V_VAR2) || (message.sensor == RP_ID_CUSTOM)){
+
+	//if ((message.type==V_VAR2) || (message.sensor == RP_ID_CUSTOM)){
 
 		if(*p=='T') {			
 			char a = *(++p);
-			if(*(p+1)!='\0'){
-				byte sensor_no = atoi(p+1);
+			char *p1 = p+1;
+			if((*p1>='0') && (*p1 <='9')){
+				byte sensor_no = atoi(p1);
+				
 				byte i;
 				byte ok;
 				byte id;
@@ -72,7 +69,7 @@ void RpDs18b20::receive(const MyMessage &message){
 					//Serial.print(" ID: ");
 					//Serial.print(id);
 					_mapTempId[sensor_no] = id;
-					saveState(EE_TEMP_MAP_OFFSET + sensor_no, id);
+					saveState(eeOffset + sensor_no, id);
 				
 					//Serial.print(", No: ");
 					//Serial.print(sensor_no);
@@ -82,8 +79,8 @@ void RpDs18b20::receive(const MyMessage &message){
 					i=0;
 					ok = 1;
 					//Serial.print(':');
-					while(ok && i<EE_TEMP_NAMES_LENGTH) {
-						saveState(EE_TEMP_NAMES_OFFSET + sensor_no*EE_TEMP_NAMES_LENGTH + i, *(p+i)); 
+					while(ok && i<EE_TEMP_NAMES_LENGTH) {						
+						saveState(eeOffset + EE_TEMP_NAMES_OFFSET + sensor_no*EE_TEMP_NAMES_LENGTH + i, *(p+i)); 
 						if(*(p+i)) {
 							//Serial.print( *(p+i));
 							i++;
@@ -96,22 +93,26 @@ void RpDs18b20::receive(const MyMessage &message){
 
 			report();
 		}
-	}
+	//}
+}
+
+void RpDs18b20::receiveCReq(const MyMessage &message){
+	myresend(tempMsg.setSensor(message.sensor).set(avgTemp[message.sensor-Id],1));
 }
 void RpDs18b20::loop() {
 }
 
-void RpDs18b20::loop_first() {
-	report();
-}
-
 void RpDs18b20::presentation() {
 	for (byte i=0; i<_numSensors && i<MAX_ATTACHED_DS18B20; i++) {   
-		rp_addFromEeprom(EE_TEMP_NAMES_OFFSET + i*EE_TEMP_NAMES_LENGTH, EE_TEMP_NAMES_LENGTH);
+		rp_addFromEeprom(eeOffset + EE_TEMP_NAMES_OFFSET + i*EE_TEMP_NAMES_LENGTH, EE_TEMP_NAMES_LENGTH);
 		present(_mapTempId[i], S_TEMP, rp_buffer);
 		*rp_buffer='\0';
 	}
 	_isMetric = getControllerConfig().isMetric;
+}
+
+void RpDs18b20::help() {
+	myresend(_msgv.set("T[{M|N}{no,id}"));
 }
 
 void RpDs18b20::report() {
@@ -124,13 +125,23 @@ void RpDs18b20::report() {
 				rp_addToBuffer(_mapTempId[i]);
 				rp_addToBuffer(" - ");
 
-				rp_addFromEeprom(EE_TEMP_NAMES_OFFSET + i*EE_TEMP_NAMES_LENGTH, EE_TEMP_NAMES_LENGTH);
+				rp_addFromEeprom(eeOffset + EE_TEMP_NAMES_OFFSET + i*EE_TEMP_NAMES_LENGTH, EE_TEMP_NAMES_LENGTH);
 
 				rp_reportBuffer();
 			}
 }
 
 void RpDs18b20::loop_1s_tick(){
+	if(rp_sleepMode != RP_SLEEP_MODE_NONE) {
+		_sensors->requestTemperatures();
+		int16_t conversionTime = _sensors->millisToWaitForConversion(_sensors->getResolution());
+		if(rp_sleepMode == RP_SLEEP_MODE_SLEEP) {
+			sleep(conversionTime);
+			rp_now += conversionTime;
+		} else {
+			wait(conversionTime);
+		}
+	}
 	for (byte i=0; i<_numSensors && i<MAX_ATTACHED_DS18B20; i++) {
 		bool tempOvertime = ((rp_now - lastTempSend[i]) > 60*1000UL*rp_force_time);
 		// Fetch and round temperature to one decimal
@@ -163,6 +174,8 @@ void RpDs18b20::loop_1s_tick(){
 		}
 	}
 	// Fetch temperatures from Dallas sensors
-	_sensors->requestTemperatures();
+	if(rp_sleepMode == RP_SLEEP_MODE_NONE) {
+		_sensors->requestTemperatures();
+	}
 	//temp_mode++;
 }

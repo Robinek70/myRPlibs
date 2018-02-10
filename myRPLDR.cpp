@@ -41,14 +41,15 @@ static byte id_ldr = RP_ID_LIGHT_SENSOR;
 RpLdr::RpLdr(byte pin) 
 	: RpSensor() {
 	_pin = pin;
-	_id = id_ldr;
+	Id = id_ldr;
+	SensorType = S_LIGHT_LEVEL;
+	SensorData = V_LIGHT_LEVEL;
 	digitalWrite(pin, HIGH);	// pull up analog pin
 	id_ldr++;					// increace for next pir sensor
 	Serial.println("LDR pin set");
+	EEReadByte(EE_LUX_MARGIN, &_luxMargin);
 }
-/*void RpLdr::receive(const MyMessage &message){
-	RpSensor::receive(message);	
-}*/
+
 void RpLdr::loop() {
 	int sensor = analogRead(_pin);
 	_luxValue = (_luxValue*dtLux + sensor*10) / (dtLux + 1);
@@ -58,8 +59,11 @@ void RpLdr::loop_1s_tick(){
 	int adcValue = _luxValue/10;	//read values were multiplied by 10
 
 	int vlux = sensorLDRToLux(adcValue);
-	if((vlux != _prevLuxValue) || ((rp_now - _lastSend) > 60*1000UL*rp_force_time)) {
-		myresend(luxMsg1.setSensor(_id).set(vlux));
+
+	int delta = MIN(_prevLuxValue, vlux)*_luxMargin/100;
+
+	if(((vlux < _prevLuxValue - delta) || (_prevLuxValue + delta < vlux)) || ((rp_now - _lastSend) > 60*1000UL*rp_force_time)) {
+		myresend(luxMsg1.setSensor(Id).set(vlux));
 		_prevLuxValue = vlux;	
 		_lastSend = rp_now;
 	}
@@ -69,7 +73,34 @@ void RpLdr::loop_first() {
 	_luxValue = analogRead(_pin)*10;
 }
 
-void RpLdr::presentation() {
+/*void RpLdr::presentation() {
 	present(_id, S_LIGHT_LEVEL);
+}*/
+
+void RpLdr::report() {
+	rp_addToBuffer("luxMargin[%]: ");
+	rp_addToBuffer(_luxMargin);
+
+	rp_reportBuffer();
+}
+
+void RpLdr::receiveCommon(const MyMessage &message){
+	//RpSensor::receive(message);
+
+	const char* data = message.data;
+	char c = data[0];
+
+	//if((message.sensor == Id) && (message.type == V_VAR2)) {
+		
+		if (c=='M') {
+			_luxMargin = atoi(&data[1]);
+			saveState(EE_LUX_MARGIN, _luxMargin);
+		}
+		report();		
+	//}
+}
+
+void RpLdr::help() {
+	myresend(_msgv.set("V2:M{9}"));
 }
 

@@ -10,13 +10,17 @@ class RpLdr : public RpSensor {
 	  void loop();
 	  void loop_first();
 	  void loop_1s_tick();
-	  void presentation();
+	  //void presentation();
+	  void receiveCommon(const MyMessage &message);
+	  void help();
 	private:
 	  byte _pin;
-	  byte _id;
+	  //byte _id;
 	  uint32_t _luxValue;
 	  int _prevLuxValue;
 	  uint32_t _lastSend;
+	  byte _luxMargin;		// difference to report [%]
+	  void report();
 };
 
 #endif
