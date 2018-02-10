@@ -91,7 +91,7 @@ double SFE_BMP180::altitude(double P, double P0)
 
 //#define MY_NODE_ID	1
 #include <../MySensors/core/MySensorsCore.h>
-#include <../MySensors/hal/architecture/MyHwAVR.h>
+#include <../MySensors/hal/architecture/AVR/MyHwAVR.h>
 //#include <core/MyCapabilities.h>
 //#include <core/MyTransport.h>
 //#include <core/Version.h>

@@ -143,5 +143,7 @@ void RpEmonI::receiveCReq(const MyMessage &message){
 		int P = Irms*_voltage+.5;
 		P = max(0,P);
 			myresend(wattMsg.setSensor(Id).set(P));
-		}
+	} else if (message.sensor == _idKwh) {
+		myresend(kwhMsg.setSensor(_idKwh).set((_kwhCount+_localKwhCount/100)/10000.,4));
+	}
 }
