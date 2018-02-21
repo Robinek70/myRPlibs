@@ -74,7 +74,7 @@ void CircularBuffer::pushElement( float elementVal )
 //Averages the last n numbers and provides that.  Discards fractions
 float CircularBuffer::averageLast( uint8_t numElements )
 {
-	if( numElements < recordLength() )
+	if( numElements > recordLength() )
 	{
 		numElements = recordLength();
 	}

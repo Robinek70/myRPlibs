@@ -39,7 +39,7 @@ void EEPROMWriteInt(int p_address, int p_value)
 	 saveState(p_address, lowByte);
      saveState(p_address + 1, highByte);
 #if RP_DEBUG == 1
-	 Serial.println("EEPROM updated");
+	 Serial.println(F("EEPROM updated"));
 #endif
      }
 
@@ -305,16 +305,16 @@ const char cHelp2[] PROGMEM  =  {"PING:{U|S|M|H|D}{9}"};
 
 void rp_receive(const MyMessage &message) {
 
-	Serial.print("SensorId:");
+	Serial.print(F("SensorId:"));
 	Serial.print(message.sensor);
-	Serial.print(", VType:");
+	Serial.print(F(", VType:"));
 	Serial.print(message.type);
-	Serial.print(", Cmd:");
+	Serial.print(F(", Cmd:"));
 	if(message.getCommand() == C_SET || message.getCommand() == C_REQ) {
 		Serial.print(message.getCommand()==1?"C_SET ":"C_REQ ");
 	}
 	Serial.print(message.getCommand());
-	Serial.print(", Data: ");
+	Serial.print(F(", Data: "));
 	Serial.println(message.data);
 
 	//rp_addToBuffer("VType:");
@@ -427,9 +427,9 @@ void RpSensor::presentation() {
 	present(Id, SensorType);
 }
 
-void RpSensor::_onInterrupt_1() {
+/*void RpSensor::_onInterrupt_1() {
 
       Serial.print(F("INT P="));
       Serial.println(digitalRead(2)>0?1:0);
-}
+}*/
 

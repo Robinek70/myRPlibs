@@ -16,7 +16,13 @@ float vBat;
 //#define R2	330e3
 //#define MAX_V_BAT     4.990      // voltage
 //#define MIN_V_BAT     3.500       // voltage
+
+
 #define VCC     5.0       // voltage
+//#define VCC     1.1       // voltage
+
+#define RP_EE_SLEEP_UNIT	0
+#define RP_EE_SLEEP_TIME	1
 
 
 RpBattery::RpBattery(byte adcPin) 
@@ -31,8 +37,14 @@ RpBattery::RpBattery(byte adcPin)
 	// digitalPinToInterrupt(INTERRUPT_PIN_2)
 	SensorType = S_MULTIMETER;
 	SensorData = V_VOLTAGE;
-	Serial.println("BATTERY pin set");
+	Serial.println(F("BATTERY pin set"));
 	rp_sleepMode = RP_SLEEP_MODE_SLEEP;
+	_eeLength = 2;
+	byte u = 'S';
+	byte v = 10;
+	EEReadByte(eeOffset + RP_EE_SLEEP_UNIT, &u);
+	EEReadByte(eeOffset + RP_EE_SLEEP_TIME, &v);
+	_sleepTime = calcTimestamp((char)u, v);
 }
 
 RpBattery* RpBattery::setDivider(float r1, float r2) {
@@ -51,14 +63,14 @@ RpBattery* RpBattery::wakeUpPin(byte pinI, byte mode) {
 	if(i==0) {
 		_pinI1 = pinI;
 		_modeI1 = mode;
-		Serial.print("Int1: ");	
+		Serial.print(F("Int1: "));	
 		Serial.print(_pinI1);
 		Serial.print(',');
 		Serial.println(_modeI1);
 	} else if(i==1) {
 		_pinI2 = pinI;
 		_modeI2 = mode;
-		Serial.print("Int2: ");	
+		Serial.print(F("Int2: "));	
 		Serial.print(_pinI2);
 		Serial.print(',');
 		Serial.println(_modeI2);
@@ -73,6 +85,7 @@ RpBattery* RpBattery::sleepTime(uint32_t sleepTime) {
 
 void RpBattery::before() {
 	analogReference(DEFAULT);
+	//analogReference(INTERNAL);
 	vBat = readBattery();//_present(SIGNAL_CHILD_ID, S_SOUND);
 }
 
@@ -98,9 +111,20 @@ void RpBattery::loop_end() {
 }
 
 void RpBattery::loop_1s_tick() {
-
-	updateBatteryLevel();
+	if((rp_now - _lastBatReport) > rp_force_time*1000UL*60) {
+		/*Serial.print(rp_now);
+		Serial.print(',');
+		Serial.print(_lastBatReport);
+		Serial.print(',');
+		Serial.println(rp_force_time*1000UL*60);*/
+		updateBatteryLevel(true);
+	}
+	
 	signalReport();
+}
+
+void RpBattery::loop_first() {	
+	updateBatteryLevel(true);
 }
 
 void RpBattery::receive(const MyMessage &message){
@@ -108,7 +132,43 @@ void RpBattery::receive(const MyMessage &message){
 
 void RpBattery::receiveCReq(const MyMessage &message){
 	
-	updateBatteryLevel();
+	//updateBatteryLevel();
+}
+
+void RpBattery::receiveCommon(const MyMessage &message){
+	char *p = (char *)message.data;
+	if(*p=='S') {
+			char u = message.data[1];
+			byte v = (byte)atoi(&(message.data[2]));
+			Serial.println(u);
+			Serial.println(',');
+			Serial.println(v);
+			
+			//uint32_t multiple = u=='S'?1:(u=='M'?60:(u=='H'?60UL*60:(u=='D'?24UL*60*60:1)));
+			//_sleepTime = multiple * v * ((u=='U')?1:1000);
+			saveState(eeOffset + RP_EE_SLEEP_UNIT, u);
+			saveState(eeOffset + RP_EE_SLEEP_TIME, v);
+			_sleepTime = calcTimestamp((char)u, v);
+			Serial.println(_sleepTime);
+			// myresend(_msgv.set(sleep_time));
+		}
+}
+static const char cHelp[] PROGMEM  =  {"S{U|S|M|H|D}{9} sleep time"};
+static const char cSleepTime[] PROGMEM  =  {"Sleep time (S):"};
+
+void RpBattery::help() {
+	myresend(_msgv.set(myF(cHelp)));
+}
+
+void RpBattery::report() {
+	byte u = 'S';
+	byte v = 10;
+	EEReadByte(eeOffset + RP_EE_SLEEP_UNIT, &u);
+	EEReadByte(eeOffset + RP_EE_SLEEP_TIME, &v);
+	rp_addPToBuffer(cSleepTime);
+	rp_addToBuffer((char)u);
+	rp_addToBuffer(v);
+	rp_reportBuffer();
 }
 
 float RpBattery::readBattery() {
@@ -118,20 +178,18 @@ float RpBattery::readBattery() {
 	return batteryV;
 }
 
-void RpBattery::updateBatteryLevel() {
-	//int v = analogRead(BATT_PIN);
-	
-	//Serial.print(v);
-	//float batteryV  = v * 0.0034408602150538;	// 1.1*(330e3+150e3)/150e3/1023;
-	//batteryV = constrain(batteryV, MIN_V_BAT, MAX_V_BAT);
+void RpBattery::updateBatteryLevel(bool forceReport) {
+	//if((rp_now - _lastBatReport) < rp_force_time*1000UL*60) {
+	//	return;
+	//}
+
 	float batteryV = readBattery();
 	vBat = batteryV;//(vBat*dtBat+batteryV)/(dtBat+1);
 	byte v_prct = (vBat - _minBat)*100./(_maxBat - _minBat) + .5;
 	
 	v_prct=constrain(max(v_prct,0), 0, 100);
 	byte proc = v_prct;
-	if(_prevProcBat != proc || (rp_now - _lastBatReport) > rp_force_time*1000UL*60) {
-		
+	if(_prevProcBat != proc || forceReport /*|| (rp_now - _lastBatReport) > rp_force_time*1000UL*60*/) {
 		_prevProcBat = proc;
 		_lastBatReport = rp_now;
 

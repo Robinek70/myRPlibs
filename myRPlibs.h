@@ -134,7 +134,7 @@ class RpSensor {
 	  byte Ping;
 	  byte MaxIds;
 	  byte eeOffset;
-	  static void _onInterrupt_1();
+	  //static void _onInterrupt_1();
 	//private:
 protected:
 	  byte _eeLength;
@@ -147,6 +147,7 @@ void EEPROMWriteInt(int p_address, int p_value);
 unsigned int EEPROMReadInt(int p_address);
 void EEReadInt(int pos, int* data);
 void EEReadByte(int pos, byte* data);
+uint32_t calcTimestamp(char u, byte v);
 
 void rp_presentation();
 void rp_receive(const MyMessage &message);

@@ -11,13 +11,17 @@ class RpBattery : public RpSensor {
 	  void before();
 	  void loop_1s_tick();
 	  void loop_end();
+	  void loop_first();
 	  void receiveCReq(const MyMessage &message);
 	  void receive(const MyMessage &message);
+	  void receiveCommon(const MyMessage &message);
 	  RpBattery* setDivider(float r1, float r2);
 	  RpBattery* setBattery(float minBat, float maxBat);
 	  RpBattery* wakeUpPin(byte pinI, byte mode);
 	  RpBattery* sleepTime(uint32_t sleepTime);
 	  void presentation();
+	  void help();
+	  void report();
 	  
 	private:
 	  byte _pin, _pinI1, _pinI2;
@@ -30,7 +34,7 @@ class RpBattery : public RpSensor {
 	  uint32_t _lastBatReport;
 
 	  float readBattery();
-	  void updateBatteryLevel();
+	  void updateBatteryLevel(bool forceReport);
 	  void signalReport();
 };
 
