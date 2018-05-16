@@ -1,6 +1,8 @@
 #include <Arduino.h> 
 #include <myRPlibs.h>
 #include <../MySensors/core/MySensorsCore.h>
+//#include <../MySensors/hal/architecture/AVR/MyHwAVR.h>
+#include <../MySensors/hal/architecture/MyHw.h>
 
 #ifndef RP_MAX_REPEATS
 	#define RP_MAX_REPEATS	5
@@ -20,12 +22,16 @@ static uint32_t lastPing = 0;
 static byte pingIntervalValue = 5;
 static byte pingIntervalUnit = 'M';
 static byte id_binary = RP_ID_RELAY;
+static byte id_pir = RP_ID_PIR;
 
 
 char rp_buffer[25];
 
 byte getFreeIdBinary() {
 	return id_binary++;
+}
+byte getFreeIdPir() {
+	return id_pir++;
 }
 
 void EEPROMWriteInt(int p_address, int p_value)
@@ -38,7 +44,7 @@ void EEPROMWriteInt(int p_address, int p_value)
 
 	 saveState(p_address, lowByte);
      saveState(p_address + 1, highByte);
-#if RP_DEBUG == 1
+#ifdef RP_DEBUG
 	 Serial.println(F("EEPROM updated"));
 #endif
      }
@@ -61,13 +67,13 @@ void EEReadByte(int pos, byte* data) {
 	if(tmp != 255) *data = tmp;
 }
 
-void myresend(MyMessage &msg)
+bool myresend(MyMessage &msg)
 {
 	byte repeat = 1;
 	boolean sendOK = false;
 
 
-	#if RP_DEBUG == 1
+	#ifdef RP_DEBUG
       Serial.print(F("SEND D="));
       Serial.print(msg.destination);
       Serial.print(F(" I="));
@@ -88,7 +94,8 @@ void myresend(MyMessage &msg)
 			break;
 		}	
 		wait(20*(1<<repeat));
-	}	
+	}
+	return sendOK;
 }
 
 byte mystrncmp(const char* flash, const char * s, byte count) {
@@ -156,6 +163,7 @@ void rp_reportBuffer() {
 }
 const char cForceReport[] PROGMEM  =  {"ForceReport(D)[m]: "};
 const char cPing[] PROGMEM  =  {"PING:"};
+const char cActive[] PROGMEM  =  {"Active(A):"};
 
 void rp_report() {
 	rp_addPToBuffer(cForceReport);
@@ -165,6 +173,9 @@ void rp_report() {
 	rp_addPToBuffer(cPing);
 	rp_addToBuffer((char)pingIntervalUnit);
 	rp_addToBuffer(pingIntervalValue);
+	rp_reportBuffer();
+	rp_addPToBuffer(cForceReport);
+	rp_addToBuffer(rp_force_time);
 	rp_reportBuffer();
 }
 
@@ -239,6 +250,22 @@ void iterateReceiveSenors(const MyMessage &msg) {
 	}
 }
 
+void enableSensor(byte id, byte disable) {
+	for(byte i=0;i<rp_sensors_count;i++) {
+		RpSensor* s =  _rpsensors[i];
+	
+		if (s->Id <= id &&  id <= s->Id + s->MaxIds - 1 ){
+			s->Disabled = disable;
+			saveState(s->eeOffset - 1 + 0, disable);	// eeOffset wskazuje przeuniecie ustaiwen urzytkownika (nie wbudowane)
+#ifdef RP_DEBUG
+			rp_addToBuffer("Found");
+			rp_reportBuffer();
+#endif
+			break;		
+		}  
+	}
+}
+
 void rp_before() {
 	EEReadByte(EE_FORCE_REPORT_TIME_OFFSET, &rp_force_time);
 
@@ -302,9 +329,10 @@ void rp_loop_end() {
 const char cHello[] PROGMEM  =  {"HELLO"};
 const char cHelp1[] PROGMEM  =  {"C,R,E,I{9},P{9},D{9m}"};
 const char cHelp2[] PROGMEM  =  {"PING:{U|S|M|H|D}{9}"};
+const char cHelp3[] PROGMEM  =  {"A{0|1},{id}"};
 
 void rp_receive(const MyMessage &message) {
-
+	/*
 	Serial.print(F("SensorId:"));
 	Serial.print(message.sensor);
 	Serial.print(F(", VType:"));
@@ -316,7 +344,7 @@ void rp_receive(const MyMessage &message) {
 	Serial.print(message.getCommand());
 	Serial.print(F(", Data: "));
 	Serial.println(message.data);
-
+	*/
 	//rp_addToBuffer("VType:");
 	//rp_addToBuffer(message.type);
 	//rp_reportBuffer();
@@ -335,6 +363,7 @@ void rp_receive(const MyMessage &message) {
 			myresend(_msgv.set(myF(cHello)));
 			myresend(_msgv.set(myF(cHelp1)));
 			myresend(_msgv.set(myF(cHelp2)));
+			myresend(_msgv.set(myF(cHelp3)));
 			iterateSenors(MySensorAction::HELP);
 		}
 		if (c=='C') {
@@ -345,7 +374,7 @@ void rp_receive(const MyMessage &message) {
 		  rp_reset();
 		}
 		else if(c=='E') {
-			for (int i = EE_RP_OFFSET ; i < EE_MAX_OFFSET ; i++) {
+			for (int i = EE_RP_OFFSET ; i < EE_RP_OFFSET+200 /*EE_MAX_OFFSET*/ ; i++) {
 				saveState(i, 255);
 			}
 			rp_reset();
@@ -355,6 +384,26 @@ void rp_receive(const MyMessage &message) {
 		}
 		else if(c=='P') {
 			hwWriteConfig(EEPROM_PARENT_NODE_ID_ADDRESS, atoi(&data[1]));
+		}
+		else if(c=='F') {
+			myresend(_msgv.set(hwCPUFrequency()));
+		}
+		else if(c=='V') {
+			myresend(_msgv.set(hwCPUVoltage()));
+		}
+		else if(c=='M') {
+			myresend(_msgv.set(hwFreeMem()));
+		}
+		else if(c=='A') {
+			// A[enable],[id]
+			byte id = atoi(&data[3]); 
+			byte enable = atoi(&data[1]);
+			rp_addToBuffer("A:");
+			rp_addToBuffer(enable);
+			rp_addToBuffer(",");
+			rp_addToBuffer(id);
+			rp_reportBuffer();
+			enableSensor(id, !enable);
 		}
 		else if(c=='D') {
 			if(data[1]!='\0') {
@@ -388,6 +437,10 @@ RpSensor::RpSensor(bool enabled) {
 			if(rp_sensors_count > 0) {
 				eeOffset += _rpsensors[rp_sensors_count - 1]->_eeLength;
 			}
+
+			EEReadByte(eeOffset + 0, &Disabled);
+			eeOffset++;
+
 			_rpsensors[rp_sensors_count] = this;
 			rp_sensors_count++;
 			MaxIds = 1;
@@ -425,6 +478,14 @@ void RpSensor::processReceive(const MyMessage &message) {
 
 void RpSensor::presentation() {
 	present(Id, SensorType);
+}
+
+void RpSensor::report() {
+	rp_addPToBuffer(cActive);
+	rp_addToBuffer(!Disabled);
+	rp_addToBuffer(',');
+	rp_addToBuffer(Id);
+	rp_reportBuffer();
 }
 
 /*void RpSensor::_onInterrupt_1() {

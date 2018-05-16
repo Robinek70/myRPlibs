@@ -87,6 +87,12 @@ double SFE_BMP180::altitude(double P, double P0)
 #define RP_SLEEP_MODE_SLEEP	1
 #define RP_SLEEP_MODE_WAIT	2
 
+#ifdef MY_SIGNING_SOFT
+#define MY_IS_SIGNED	"SG"
+#else
+#define MY_IS_SIGNED	""
+#endif
+
 //#define MYF(x)	(myF(PSTR(x)))
 
 //#define MY_NODE_ID	1
@@ -126,7 +132,7 @@ class RpSensor {
 	  virtual void loop_end() {};
 	  virtual void presentation();
 	  virtual void help() {};
-	  virtual void report() {};
+	  virtual void report();
 	  byte SensorType;
 	  byte SensorData;
 	  byte Id;
@@ -141,7 +147,7 @@ protected:
 		
 };
 
-void myresend(MyMessage &msg);
+bool myresend(MyMessage &msg);
 
 void EEPROMWriteInt(int p_address, int p_value);
 unsigned int EEPROMReadInt(int p_address);
@@ -172,6 +178,7 @@ void rp_reportBuffer();
 byte mystrncmp(const char* flash, const char * s, byte count);
 
 byte getFreeIdBinary() ;
+byte getFreeIdPir() ;
 
 
 

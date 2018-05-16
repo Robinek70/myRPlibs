@@ -2,7 +2,7 @@
 #define RPEMONI_h
 
 #include <Arduino.h>
-//#include "CircularBuffer.h"
+#include "CircularBuffer.h"
 #include "EmonLib.h"
 
 class RpEmonI : public RpSensor {
@@ -16,6 +16,7 @@ class RpEmonI : public RpSensor {
 
 	  RpEmonI* setVoltage(int v);
 	  RpEmonI* setCurrentCalibration(float iCal, float iOffset);
+	  RpEmonI* setIOffset(float iOffset);
 	  RpEmonI* setNumSamples(int numSamples);
 	  void setTimer(int8_t delay);
 	private:
@@ -31,7 +32,7 @@ class RpEmonI : public RpSensor {
 	  uint32_t _localKwhCount;
 	  byte _idKwh;
 	  bool _ready;
-	  //CircularBuffer* myBuffer;
+	  CircularBuffer* myBuffer;
 	  int8_t _countdownTimer;
 	  uint32_t _sum;
 	  int8_t _sumCount;

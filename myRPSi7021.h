@@ -5,8 +5,8 @@
 #include "CircularBuffer.h"
 #include "SparkFun_Si7021_Breakout_Library.h"
 
-#define TBUFSIZE	1
-#define HBUFSIZE	1
+#define TBUFSIZE	3
+#define HBUFSIZE	3
 
 class RpDsSi7021 : public RpSensor {
 	public:

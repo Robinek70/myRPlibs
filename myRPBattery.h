@@ -6,7 +6,7 @@
 
 class RpBattery : public RpSensor {
 	public:
-	  RpBattery(byte adcPin);
+	  RpBattery(byte adcPin, uint8_t refType, uint16_t refV);
 
 	  void before();
 	  void loop_1s_tick();
@@ -30,6 +30,7 @@ class RpBattery : public RpSensor {
 	  float _r2;
 	  float _minBat, _maxBat;
 	  byte _prevProcBat;
+	  uint16_t _vccRef;
 	  uint32_t _sleepTime;
 	  uint32_t _lastBatReport;
 

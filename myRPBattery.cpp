@@ -18,14 +18,16 @@ float vBat;
 //#define MIN_V_BAT     3.500       // voltage
 
 
-#define VCC     5.0       // voltage
+//#define VCC     5.0       // voltage
 //#define VCC     1.1       // voltage
 
 #define RP_EE_SLEEP_UNIT	0
 #define RP_EE_SLEEP_TIME	1
 
 
-RpBattery::RpBattery(byte adcPin) 
+
+
+RpBattery::RpBattery(byte adcPin, uint8_t refType, uint16_t refV) 
 	: RpSensor() {
 	_pin = adcPin;
 	_pinI1 = INTERRUPT_NOT_DEFINED;
@@ -45,6 +47,12 @@ RpBattery::RpBattery(byte adcPin)
 	EEReadByte(eeOffset + RP_EE_SLEEP_UNIT, &u);
 	EEReadByte(eeOffset + RP_EE_SLEEP_TIME, &v);
 	_sleepTime = calcTimestamp((char)u, v);
+	_vccRef = refV;
+
+	//analogReference(DEFAULT);
+	//analogReference(INTERNAL);
+	analogReference(refType);
+	vBat = readBattery();//_present(SIGNAL_CHILD_ID, S_SOUND);
 }
 
 RpBattery* RpBattery::setDivider(float r1, float r2) {
@@ -84,9 +92,7 @@ RpBattery* RpBattery::sleepTime(uint32_t sleepTime) {
 }
 
 void RpBattery::before() {
-	analogReference(DEFAULT);
-	//analogReference(INTERNAL);
-	vBat = readBattery();//_present(SIGNAL_CHILD_ID, S_SOUND);
+	
 }
 
 void RpBattery::presentation() {
@@ -96,9 +102,10 @@ void RpBattery::presentation() {
 
 void RpBattery::loop_end() {
 	if(rp_sleepMode == RP_SLEEP_MODE_SLEEP) {
-		sendHeartbeat();
-		wait(MY_SMART_SLEEP_WAIT_DURATION_MS);
-		int8_t i = sleep(digitalPinToInterrupt(_pinI1), _modeI1,digitalPinToInterrupt(_pinI2), _modeI2, _sleepTime, false);
+		//sendHeartbeat();
+		//wait(MY_SMART_SLEEP_WAIT_DURATION_MS);
+		//int8_t i = sleep(digitalPinToInterrupt(_pinI1), _modeI1,digitalPinToInterrupt(_pinI2), _modeI2, _sleepTime, false);
+		int8_t i = smartSleep(digitalPinToInterrupt(_pinI1), _modeI1,digitalPinToInterrupt(_pinI2), _modeI2, _sleepTime);
 		if(i == -1) {
 			rp_add_sleep_time += _sleepTime;
 		} else {
@@ -120,7 +127,7 @@ void RpBattery::loop_1s_tick() {
 		updateBatteryLevel(true);
 	}
 	
-	signalReport();
+	//signalReport();
 }
 
 void RpBattery::loop_first() {	
@@ -140,16 +147,16 @@ void RpBattery::receiveCommon(const MyMessage &message){
 	if(*p=='S') {
 			char u = message.data[1];
 			byte v = (byte)atoi(&(message.data[2]));
-			Serial.println(u);
-			Serial.println(',');
-			Serial.println(v);
+			//Serial.println(u);
+			//Serial.println(',');
+			//Serial.println(v);
 			
 			//uint32_t multiple = u=='S'?1:(u=='M'?60:(u=='H'?60UL*60:(u=='D'?24UL*60*60:1)));
 			//_sleepTime = multiple * v * ((u=='U')?1:1000);
 			saveState(eeOffset + RP_EE_SLEEP_UNIT, u);
 			saveState(eeOffset + RP_EE_SLEEP_TIME, v);
 			_sleepTime = calcTimestamp((char)u, v);
-			Serial.println(_sleepTime);
+			//Serial.println(_sleepTime);
 			// myresend(_msgv.set(sleep_time));
 		}
 }
@@ -173,7 +180,7 @@ void RpBattery::report() {
 
 float RpBattery::readBattery() {
 	int v = analogRead(_pin);
-	float batteryV  = v * VCC*(_r1+_r2)/_r2/1023; //  * 0.0034408602150538;	
+	float batteryV  = v * _vccRef*(_r1+_r2)/_r2/1023; //  * 0.0034408602150538;	
 	//batteryV = constrain(batteryV, MIN_V_BAT, MAX_V_BAT);
 	return batteryV;
 }

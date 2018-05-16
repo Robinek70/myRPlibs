@@ -3,8 +3,9 @@
 #include <Arduino.h>
 #include <../MySensors/core/MySensorsCore.h>
 
-static MyMessage tempMsg(0, V_TEMP);
-static MyMessage humMsg(0+1, V_HUM);
+//static MyMessage tempMsg(0, V_TEMP);
+//static MyMessage humMsg(0+1, V_HUM);
+static MyMessage rpMsg(0, V_HUM);
 
 RpDsSi7021::RpDsSi7021() 
 	: RpSensor() {
@@ -78,9 +79,10 @@ void RpDsSi7021::reportData(bool forceReport) {
 	}*/
 
 	if(prevHum != humidity || prevTemp != temp || forceReport) {
-		myresend(tempMsg.set(temp,1));
+		myresend(rpMsg.setSensor(Id).setType(V_TEMP).set(temp,1));
 		prevTemp = temp;	
-		myresend(humMsg.set(humidity,1));
+		//myresend(humMsg.set(humidity,0));
+		myresend(rpMsg.setSensor(Id+1).setType(V_HUM).set(humidity,0));
 		prevHum = humidity;
 	}
 }

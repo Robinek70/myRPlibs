@@ -28,7 +28,7 @@ RpEmonI::RpEmonI(byte pin)
 	MaxIds = 2;
 	_lastKwhTime = 0;//4294957296;	// -15s
 	_ready = 0;
-	//myBuffer = new CircularBuffer(5);
+	myBuffer = new CircularBuffer(3);
 	_countdownTimer = 5;
 
 	//pinMode(pin, OUTPUT);
@@ -48,6 +48,10 @@ RpEmonI* RpEmonI::setCurrentCalibration(float iCal, float iOffset) {
 	_iOffset = iOffset;
 	return this;
 }
+RpEmonI* RpEmonI::setIOffset(float iOffset) {
+	_iOffset = iOffset;
+	return this;
+}
 RpEmonI* RpEmonI::setNumSamples(int numSamples) {
 	_numSamples = numSamples;
 	return this;
@@ -63,7 +67,7 @@ void RpEmonI::presentation() {
 }
 
 void RpEmonI::setup() {
-	Serial.println("Sending request...");
+	//Serial.println("Sending request...");
 	//request(Id + 1, V_KWH);
 	request(_idKwh, V_VAR2);
 
@@ -83,18 +87,32 @@ void RpEmonI::loop_1s_tick() {
 		myresend(_msgv.set(_countdownTimer));
 		return;
 	}
-
-	int P = Irms*_voltage+.5;
+	myBuffer->pushElement(Irms*_voltage);
+	int P = myBuffer->averageLast(3)+.5;
 	P = max(0,P);
+	if(P<5) P=0;
+	
 	_sum+=P;
 	_sumCount++;
 
-	//myBuffer->pushElement(P);
+		/*rp_addToBuffer("P: ");
+		rp_addToBuffer(P);
+		rp_reportBuffer();
+		rp_addToBuffer("prev: ");
+		rp_addToBuffer(_prevP);
+		rp_reportBuffer();*/
 
-	if( abs(P-_prevP)>0) {
+	if(P!=_prevP && (_prevP!= 0 || P>=5)) {
+		
+		if((100UL*abs(P-_prevP))/_prevP>=2 || P == 0) {
+			myresend(wattMsg.setSensor(Id).set(P));
+			_prevP = P;
+		}
+	}
+	/*if( abs(P-_prevP)>0) {
 		myresend(wattMsg.setSensor(Id).set(P));
 		_prevP = P;
-	}
+	}*/
 
 	if(rp_now - _lastKwhTime > 1000UL * short_interval) {
 		uint32_t avgP = 100UL*_sum/_sumCount;	// avg power multipled by 100
@@ -143,7 +161,8 @@ void RpEmonI::receiveCReq(const MyMessage &message){
 		int P = Irms*_voltage+.5;
 		P = max(0,P);
 			myresend(wattMsg.setSensor(Id).set(P));
-	} else if (message.sensor == _idKwh) {
+	} else if (message.sensor == _idKwh && message.type != V_VAR2) {
 		myresend(kwhMsg.setSensor(_idKwh).set((_kwhCount+_localKwhCount/100)/10000.,4));
 	}
 }
+

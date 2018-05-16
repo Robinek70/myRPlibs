@@ -3,7 +3,9 @@
 #include <Arduino.h>
 #include <../MySensors/core/MySensorsCore.h>
 
-static MyMessage swMsg(RP_ID_RELAY, V_LIGHT);
+//static MyMessage swMsg(RP_ID_RELAY, V_LIGHT);
+//static MyMessage pirMsg(RP_ID_PIR, V_LIGHT);
+static MyMessage _msg;
 
 
 //#define LIGHT_PORT	PORTD
@@ -15,6 +17,7 @@ static void myint0();
 static byte minWaves = 10;	// EE
 static byte MaxLights = 1;	// EE
 static byte RevTriack = 1;	// EE
+static byte pirMode	  = 0;	// EE
 
 struct LIGHTHW {
 	volatile uint8_t* rejestr;
@@ -57,16 +60,18 @@ RpMainSwitch::RpMainSwitch()
 	: RpSensor() {
 	//_pin = pin;
 	Id = getFreeIdBinary();
+	IdPir = getFreeIdPir();
 	SensorType = S_BINARY;
 	SensorData = V_STATUS;
 	Ping = 1;
 	pinMode(INT_NO + 2, INPUT); 
 
-	_eeLength = 5;
+	_eeLength = 6;
 
 	EEReadByte(eeOffset + EE_SWITCHES, &MaxLights);
 	EEReadByte(eeOffset + EE_TRIACK_MODE, &RevTriack);
 	EEReadByte(eeOffset + EE_MINWAVES, &minWaves);
+	EEReadByte(eeOffset + EE_PIR_MODE, &pirMode);
 	for(byte i = 0;i<MaxLights;i++) {		
 		EEReadByte(eeOffset + EE_SW_INVERT + i, &(lights_hw[i].invertSwitch));
 	}
@@ -85,7 +90,7 @@ RpMainSwitch::RpMainSwitch()
 
 	  attachInterrupt (INT_NO, myint0, CHANGE);
 	  sei();
-	Serial.println("MainSwitch pin set");
+	//Serial.println("MainSwitch pin set");
 
 }
 
@@ -158,7 +163,7 @@ ISR(TIMER2_OVF_vect)          // timer compare interrupt service routine
 }
 
 void RpMainSwitch::setup() {
-	Serial.println("Sending request...");
+	//Serial.println("Sending request...");
 	for(byte i=0;i<MaxLights;i++) {
 		request(Id + i, SensorData);
 		wait(200);
@@ -193,8 +198,11 @@ void RpMainSwitch::loop_1s_tick() {
 const char cMinWaves[] PROGMEM  =  {"MinWaves (w):"};
 const char cLights[] PROGMEM  =  {"Switches (s):"};
 const char cTriackMode[] PROGMEM  =  {"Triack (t):"};
+const char cPirkMode[] PROGMEM  =  {"Pir (p):"};
 
 void RpMainSwitch::report() {
+	RpSensor::report();
+
 	rp_addPToBuffer(cLights);
 	rp_addToBuffer(MaxLights);
 	rp_reportBuffer();
@@ -205,6 +213,10 @@ void RpMainSwitch::report() {
 
 	rp_addPToBuffer(cTriackMode);
 	rp_addToBuffer(RevTriack);
+	rp_reportBuffer();
+
+	rp_addPToBuffer(cPirkMode);
+	rp_addToBuffer(pirMode);
 	rp_reportBuffer();
 }
 
@@ -221,6 +233,10 @@ void RpMainSwitch::receiveCommon(const MyMessage &message){
 		RevTriack = atoi( &s[1] );
 		saveState(eeOffset + EE_TRIACK_MODE, RevTriack);
 		rp_reset();
+	} else if( *s== 'p') {
+		pirMode = atoi( &s[1] );
+		saveState(eeOffset + EE_PIR_MODE, pirMode);
+		rp_reset();
 	}
 }
 
@@ -229,7 +245,8 @@ void RpMainSwitch::receive(const MyMessage &message){
 	byte idx  = message.sensor - Id;
 	if (message.type==V_STATUS) {
 		int onOff = atoi( message.data );
-		myresend( _msgv.setSensor(message.sensor).set(onOff?"light ON":"light OFF") );
+		//myresend( _msgv.setSensor(message.sensor).set(onOff?"light ON":"light OFF") );
+		wait(300);
 		if(!switchTo(idx, onOff)){
 			return;
 		}
@@ -237,7 +254,14 @@ void RpMainSwitch::receive(const MyMessage &message){
 }
 
 void RpMainSwitch::receiveCReq(const MyMessage &message){
-	myresend(swMsg.setSensor(Id).set(getState(message.sensor - Id)));
+	myresend(_msg.setType(SensorData).setSensor(Id).set(getState(message.sensor - Id)));
+}
+
+void RpMainSwitch::presentation() {
+	RpSensor::presentation();
+	if(pirMode == 1) {
+		present(IdPir, S_MOTION);
+	}
 }
 
 bool RpMainSwitch::getState(byte idx){
@@ -245,11 +269,21 @@ bool RpMainSwitch::getState(byte idx){
 }
 
 byte RpMainSwitch::switchPosition(struct LIGHTHW* light) {
-	if(light->invertSwitch) {
-		return light->lineState?0:1;
-	}
 
-	return light->lineState?1:0;	  
+	if(pirMode == 1) {
+		if(light->invertSwitch) {
+			return 0;
+		}
+
+		return 1; 
+	} else {
+		if(light->invertSwitch) {
+
+			return light->lineState?0:1;
+		}
+
+		return light->lineState?1:0; 
+	}
 }
 
 void RpMainSwitch::storeSwitchPosition(byte idx) {
@@ -293,7 +327,11 @@ void RpMainSwitch::checkSwitch() {
 		if(light->prevLineState != light->lineState) {
 			light->prevLineState = light->lineState;
 
-			myresend( _msgv.set(light->lineState?"line ON":"line OFF") );
+			if(pirMode == 1) {
+				myresend(_msg.setType(V_STATUS).setSensor(IdPir + i).set(light->lineState>0?1:0));
+			} else {
+				//myresend( _msgv.set(light->lineState?"line ON":"line OFF") );
+			}
 		}
 
 		if(light->switchPosition) {
@@ -307,8 +345,8 @@ void RpMainSwitch::checkSwitch() {
 				else {
 					light->targetLevel = light->savedLevel;
 				}
-				myresend(swMsg.setSensor(Id + i).set(1));
-				myresend( _msgv.set("SET ON") );
+				myresend(_msg.setType(SensorData).setSensor(Id + i).set(1));
+				//myresend( _msgv.set("SET ON") );
 			} 
 		} else {
 			// switch NOT pressed/active
@@ -323,8 +361,8 @@ void RpMainSwitch::checkSwitch() {
 			    //}
 
 				light->targetLevel = MAX_VALUE;
-				myresend(swMsg.setSensor(Id + i).set(0));
-				myresend( _msgv.set("SET OFF") );
+				myresend(_msg.setType(SensorData).setSensor(Id + i).set(0));
+				//myresend( _msgv.set("SET OFF") );
 			}
 		}
 

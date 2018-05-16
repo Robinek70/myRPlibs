@@ -25,6 +25,7 @@
 #define EE_MINWAVES		1
 #define EE_TRIACK_MODE	2
 #define EE_SW_INVERT	3	// 2  bytes, for 2 lights
+#define EE_PIR_MODE		5	// PIR zamiast switch on input
 
 #define isLIGHTFULL		1
 //#define isLIGHTFULL		(!(cfg & CFG_DIMMER_ON))
@@ -42,7 +43,9 @@ class RpMainSwitch : public RpSensor {
 	  void receiveCommon(const MyMessage &message);
 	  bool getState(byte idx);
 	  void report();
+	  void presentation();
 	private:
+	  byte IdPir;
 	  void checkSwitch();
 	  byte switchPosition(struct LIGHTHW* light);
 	  boolean switchTo(byte idx, byte onOff);
