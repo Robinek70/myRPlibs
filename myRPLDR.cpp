@@ -35,7 +35,7 @@ inline int sensorLDRToLux(int adc) {
 
 // LUX
 static byte dtLux = 100;
-static MyMessage luxMsg1(RP_ID_LIGHT_SENSOR, V_LIGHT_LEVEL);
+static MyMessage luxMsg1(RP_ID_LIGHT_SENSOR, V_LEVEL);
 static byte id_ldr = RP_ID_LIGHT_SENSOR;
 
 RpLdr::RpLdr(byte pin) 
