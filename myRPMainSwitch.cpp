@@ -165,7 +165,7 @@ ISR(TIMER2_OVF_vect)          // timer compare interrupt service routine
 void RpMainSwitch::setup() {
 	//Serial.println("Sending request...");
 	for(byte i=0;i<MaxLights;i++) {
-		request(Id + i, SensorData);
+		request(Id + i, V_STATUS);
 		wait(200);
 	}
 }
@@ -254,11 +254,12 @@ void RpMainSwitch::receive(const MyMessage &message){
 }
 
 void RpMainSwitch::receiveCReq(const MyMessage &message){
-	myresend(_msg.setType(SensorData).setSensor(Id).set(getState(message.sensor - Id)));
+	myresend(_msg.setType(V_STATUS).setSensor(Id).set(getState(message.sensor - Id)));
 }
 
 void RpMainSwitch::presentation() {
 	RpSensor::presentation();
+	present(Id, S_DIMMER);
 	if(pirMode == 1) {
 		present(IdPir, S_MOTION);
 	}
@@ -328,7 +329,8 @@ void RpMainSwitch::checkSwitch() {
 			light->prevLineState = light->lineState;
 
 			if(pirMode == 1) {
-				myresend(_msg.setType(V_STATUS).setSensor(IdPir + i).set(light->lineState>0?1:0));
+				//myresend( _msgv.set(light->lineState?"Motion ON":"Motion OFF") );
+				myresend(_msg.setType(V_TRIPPED).setSensor(IdPir + i).set(light->lineState>0?1:0));
 			} else {
 				//myresend( _msgv.set(light->lineState?"line ON":"line OFF") );
 			}
@@ -345,7 +347,7 @@ void RpMainSwitch::checkSwitch() {
 				else {
 					light->targetLevel = light->savedLevel;
 				}
-				myresend(_msg.setType(SensorData).setSensor(Id + i).set(1));
+				myresend(_msg.setType(V_STATUS).setSensor(Id + i).set(1));
 				//myresend( _msgv.set("SET ON") );
 			} 
 		} else {
@@ -361,7 +363,7 @@ void RpMainSwitch::checkSwitch() {
 			    //}
 
 				light->targetLevel = MAX_VALUE;
-				myresend(_msg.setType(SensorData).setSensor(Id + i).set(0));
+				myresend(_msg.setType(V_STATUS).setSensor(Id + i).set(0));
 				//myresend( _msgv.set("SET OFF") );
 			}
 		}

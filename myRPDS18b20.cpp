@@ -2,6 +2,8 @@
 #include "myRPDS18b20.h"
 #include <Arduino.h>
 #include <../MySensors/core/MySensorsCore.h>
+#include <../MySensors/core/MyTransport.h>
+#include <../MySensors/hal/architecture/MyHw.h>
 
 static MyMessage tempMsg(RP_ID_TEMP, V_TEMP);
 static byte id_ds = RP_ID_TEMP;
@@ -13,16 +15,17 @@ static float lastTemperature[MAX_ATTACHED_DS18B20];
 static float avgTemp[MAX_ATTACHED_DS18B20];
 static uint32_t lastTempSend[MAX_ATTACHED_DS18B20];
 static byte prevSkippedTemp[MAX_ATTACHED_DS18B20];
-static byte dtt = 4;
+static byte _dtt = 0;
 
 //const char DSPinSet[] PROGMEM  = {"DS pin set"};
 
 
 
-RpDs18b20::RpDs18b20(byte pin) 
+RpDs18b20::RpDs18b20(byte pin, byte dtt) 
 	: RpSensor() {
 	_pin = pin;
 	Id = id_ds;
+	_dtt = dtt;
 	
 	Serial.println("DS pin set");
 
@@ -34,6 +37,7 @@ RpDs18b20::RpDs18b20(byte pin)
 	_sensors->requestTemperatures();
 	
 	id_ds += _numSensors;	// increace for next pir sensor
+	_eeLength = MAX_ATTACHED_DS18B20 + MAX_ATTACHED_DS18B20*EE_TEMP_NAMES_LENGTH;
 
 	for (byte i=0; i<MAX_ATTACHED_DS18B20; i++) {      
 		_mapTempId[i] = RP_ID_TEMP+i;
@@ -51,7 +55,7 @@ void RpDs18b20::receiveCommon(const MyMessage &message){
 
 	//if ((message.type==V_VAR2) || (message.sensor == RP_ID_CUSTOM)){
 
-		if(*p=='T') {			
+		if(*p=='t') {			
 			char a = *(++p);
 			char *p1 = p+1;
 			if((*p1>='0') && (*p1 <='9')){
@@ -112,10 +116,11 @@ void RpDs18b20::presentation() {
 }
 
 void RpDs18b20::help() {
-	myresend(_msgv.set("T[{M|N}{no,id}"));
+	myresend(_msgv.set("t[{M|N}{no,id}"));
 }
 
 void RpDs18b20::report() {
+	RpSensor::report();
 	rp_addToBuffer("Temps: ");
 	rp_addToBuffer(_numSensors);
 	rp_reportBuffer();
@@ -131,17 +136,25 @@ void RpDs18b20::report() {
 			}
 }
 
+//#define MY_SMART_SLEEP_WAIT_DURATION_MS	250
+
 void RpDs18b20::loop_1s_tick(){
 	if(rp_sleepMode != RP_SLEEP_MODE_NONE) {
 		_sensors->requestTemperatures();
 		int16_t conversionTime = _sensors->millisToWaitForConversion(_sensors->getResolution());
-		if(rp_sleepMode == RP_SLEEP_MODE_SLEEP) {
-			sleep(conversionTime);
-			rp_now += conversionTime;
-		} else {
+
+		if(rp_sleepMode == RP_SLEEP_MODE_WAIT ) {
 			wait(conversionTime);
+		} else { //if(rp_sleepMode == RP_SLEEP_MODE_SLEEP || rp_sleepMode == RP_SLEEP_MODE_SMART) {
+			//myresend(_msgv.set("ds_measure_start"));
+			sleep(conversionTime, rp_sleepMode == RP_SLEEP_MODE_SMART);
+			//hwSleep(_sleepTime);
+			//myresend(_msgv.set("ds_measure_end"));
+			rp_now += conversionTime;
 		}
+			
 	}
+	bool isActive = false;
 	for (byte i=0; i<_numSensors && i<MAX_ATTACHED_DS18B20; i++) {
 		bool tempOvertime = ((rp_now - lastTempSend[i]) > 60*1000UL*rp_force_time);
 		// Fetch and round temperature to one decimal
@@ -153,13 +166,15 @@ void RpDs18b20::loop_1s_tick(){
 			if(avgTemp[i]==0) {
 				avgTemp[i]=temperature;
 			}
-			avgTemp[i] = (avgTemp[i]*dtt + temperature)/(dtt + 1);
+			avgTemp[i] = (avgTemp[i]*_dtt + temperature)/(_dtt + 1);
 
 			if(round(avgTemp[i]*10) != round(lastTemperature[i]*10) || tempOvertime) {
 
 				if(prevSkippedTemp[i]>2 || (abs(lastTemperature[i] - avgTemp[i])>0.19) || tempOvertime) {
 					// Send in the new temperature
 					myresend(tempMsg.setSensor(/*CHILD_ID_TEMP+i*/ _mapTempId[i]).set(avgTemp[i],1));
+					
+					isActive = true;
 					//if(temp_mode == numSensors - 1) {
 						// update send time after last sensor 
 						lastTempSend[i] = rp_now;
@@ -172,6 +187,17 @@ void RpDs18b20::loop_1s_tick(){
 				}
 			}
 		}
+	}
+
+	if(isActive) {
+		MyMessage _msgTmp;
+		//sendHeartbeat();
+		(void)_sendRoute(build(_msgTmp, GATEWAY_ADDRESS, NODE_SENSOR_ID, C_INTERNAL,
+		                       I_POST_SLEEP_NOTIFICATION).set(_sleepTime));
+
+		(void)_sendRoute(build(_msgTmp, GATEWAY_ADDRESS, NODE_SENSOR_ID, C_INTERNAL,
+		                       I_PRE_SLEEP_NOTIFICATION).set((uint32_t)MY_SMART_SLEEP_WAIT_DURATION_MS));
+		wait(MY_SMART_SLEEP_WAIT_DURATION_MS);
 	}
 	// Fetch temperatures from Dallas sensors
 	if(rp_sleepMode == RP_SLEEP_MODE_NONE) {

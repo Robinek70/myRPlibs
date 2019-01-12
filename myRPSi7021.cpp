@@ -13,12 +13,20 @@ RpDsSi7021::RpDsSi7021()
 
 	tBuffer = new CircularBuffer(TBUFSIZE);
 	hBuffer = new CircularBuffer(HBUFSIZE);
-	Serial.println(F("Si starting..."));
+	//Serial.println(F("Si starting..."));
 
 	siSensor.begin();
+	uint8_t ID_Temp_Hum = siSensor.checkID();
+	if(ID_Temp_Hum == 0x15 || ID_Temp_Hum == 0x32) {  // 0x15 = Si7021 Found, 0x32 = HTU21D Found
+		//MaxIds = 2;
+	} else {
+		//MaxIds = 0;
+		Disabled = 1;
+	}
 
-	_lastMeasureTime = 0;
 	MaxIds = 2;
+	_lastMeasureTime = 0;
+	
 	//prevHum = prevTemp = 0;
 }
 
@@ -28,8 +36,10 @@ void RpDsSi7021::receiveCReq(const MyMessage &message){
 }
 
 void RpDsSi7021::presentation() {
-	present(Id, S_TEMP);
-	present(Id+1, S_HUM);
+	//if(MaxIds != 0) {
+		present(Id, S_TEMP);
+		present(Id+1, S_HUM);
+	//}
 	_isMetric = getControllerConfig().isMetric;
 }
 /*
@@ -50,6 +60,10 @@ void RpDsSi7021::loop_1s_tick(){
 }
 
 void RpDsSi7021::reportData(bool forceReport) {
+
+	//if(MaxIds == 0)
+		//return;
+
 	float humidity, humidity1, temp, temp1;
 	getSiWeather(&humidity1, &temp1);
 	tBuffer->pushElement(temp1);

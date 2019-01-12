@@ -5,6 +5,8 @@
 #include "CircularBuffer.h"
 #include "EmonLib.h"
 
+#define RP_KWH_VAR	V_VAR2
+
 class RpEmonI : public RpSensor {
 	public:
 	  RpEmonI(byte pin);

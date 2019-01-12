@@ -2,6 +2,7 @@
 #include "myRPBattery.h"
 #include <Arduino.h>
 #include <../MySensors/core/MySensorsCore.h>
+#include <../MySensors/hal/architecture/MyHw.h>
 
 #define RP_ID_SIGNAL			197
 #define RP_ID_VOLTAGE			198
@@ -39,8 +40,8 @@ RpBattery::RpBattery(byte adcPin, uint8_t refType, uint16_t refV)
 	// digitalPinToInterrupt(INTERRUPT_PIN_2)
 	SensorType = S_MULTIMETER;
 	SensorData = V_VOLTAGE;
-	Serial.println(F("BATTERY pin set"));
-	rp_sleepMode = RP_SLEEP_MODE_SLEEP;
+	//Serial.println(F("BATTERY pin set"));
+	rp_sleepMode = RP_SLEEP_MODE_SMART;
 	_eeLength = 2;
 	byte u = 'S';
 	byte v = 10;
@@ -101,19 +102,25 @@ void RpBattery::presentation() {
 }
 
 void RpBattery::loop_end() {
-	if(rp_sleepMode == RP_SLEEP_MODE_SLEEP) {
+	if(rp_sleepMode == RP_SLEEP_MODE_WAIT) {
+		wait(_sleepTime);
+	} else if(rp_sleepMode != RP_SLEEP_MODE_NONE) {
+		//myresend(_msgv.set("battery_sleep"));
 		//sendHeartbeat();
 		//wait(MY_SMART_SLEEP_WAIT_DURATION_MS);
 		//int8_t i = sleep(digitalPinToInterrupt(_pinI1), _modeI1,digitalPinToInterrupt(_pinI2), _modeI2, _sleepTime, false);
-		int8_t i = smartSleep(digitalPinToInterrupt(_pinI1), _modeI1,digitalPinToInterrupt(_pinI2), _modeI2, _sleepTime);
+		//transportDisable();
+		//transportReInitialise();
+		int8_t i = sleep(digitalPinToInterrupt(_pinI1), _modeI1, digitalPinToInterrupt(_pinI2), _modeI2, _sleepTime, rp_sleepMode == RP_SLEEP_MODE_SMART);
+		//hwSleep(_sleepTime);
+
 		if(i == -1) {
 			rp_add_sleep_time += _sleepTime;
 		} else {
 			//Serial.print("Interupt: ");
 			//Serial.println(i);
 		}
-	} else if(rp_sleepMode == RP_SLEEP_MODE_WAIT) {
-		wait(_sleepTime);
+		//myresend(_msgv.set("battery_wakeup"));
 	}
 }
 

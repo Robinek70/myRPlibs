@@ -31,7 +31,7 @@ class RpBattery : public RpSensor {
 	  float _minBat, _maxBat;
 	  byte _prevProcBat;
 	  uint16_t _vccRef;
-	  uint32_t _sleepTime;
+	  //uint32_t _sleepTime;
 	  uint32_t _lastBatReport;
 
 	  float readBattery();

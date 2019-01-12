@@ -13,13 +13,14 @@
 
 class RpDs18b20 : public RpSensor {
 	public:
-	  RpDs18b20(byte pin);
+	  RpDs18b20(byte pin, byte dtt);
 	  void receiveCommon(const MyMessage &message);
 	  void receiveCReq(const MyMessage &message);
 	  void loop();
 	  void presentation();
 	  void loop_1s_tick();
 	  void help();
+	  void report();	
 	private:
 	  byte _pin;
 	  //byte _id;	  
@@ -27,9 +28,7 @@ class RpDs18b20 : public RpSensor {
 	  byte _numSensors;
 	  uint32_t _lastMeasureTime;
 	  DallasTemperature* _sensors;//(&oneWire);
-	  byte _mapTempId[MAX_ATTACHED_DS18B20];
-
-	  void report();	  
+	  byte _mapTempId[MAX_ATTACHED_DS18B20];	    
 };
 
 #endif

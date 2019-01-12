@@ -37,7 +37,7 @@ double SFE_BMP180::altitude(double P, double P0)
 #include <Arduino.h>
 #endif
 
-#define RP_DEBUG			1
+//#define RP_DEBUG			1
 
 #define RP_ID_TMPHUM		0	
 #define RP_ID_HUM			1
@@ -61,8 +61,9 @@ double SFE_BMP180::altitude(double P, double P0)
 
 
 #define EE_RP_OFFSET				0
-#define EE_TEMP_MAP_OFFSET1			EE_RP_OFFSET														//!< MAX_ATTACHED_DS18B20 bytes, map
-#define EE_TEMP_NAMES_OFFSET1		(EE_TEMP_MAP_OFFSET1+4)							//!< MAX_ATTACHED_DS18B20*EE_TEMP_NAMES_LENGTH bytes, names of sensors
+#define EE_RF24_LEVEL				EE_RP_OFFSET				// (3 bits) 0x03
+//#define EE_TEMP_MAP_OFFSET1			EE_RP_OFFSET			//!< MAX_ATTACHED_DS18B20 bytes, map
+#define EE_TEMP_NAMES_OFFSET1		(/*EE_TEMP_MAP_OFFSET1*/ EE_RF24_LEVEL+4)							//!< MAX_ATTACHED_DS18B20*EE_TEMP_NAMES_LENGTH bytes, names of sensors
 #define EE_FORCE_REPORT_TIME_OFFSET	(EE_TEMP_NAMES_OFFSET1 + 4*15)	//!< 1 byte, max gap between reports from sensor [min]
 #define EE_MOTION_DELAY_OFFSET1		(EE_FORCE_REPORT_TIME_OFFSET + 1)										//!< 2 byte, max gap between reports from sensor [s]
 #define EE_LUX_MARGIN				(EE_MOTION_DELAY_OFFSET1 + 2)										// 1 byte lux margin [%] to report
@@ -86,11 +87,15 @@ double SFE_BMP180::altitude(double P, double P0)
 #define RP_SLEEP_MODE_NONE	0
 #define RP_SLEEP_MODE_SLEEP	1
 #define RP_SLEEP_MODE_WAIT	2
+#define RP_SLEEP_MODE_SMART	3
+#define RP_SLEEP_MODE_MANUAL	4
+
+#define RP_COMMON_VAR_TYPE	V_VAR2
 
 #ifdef MY_SIGNING_SOFT
-#define MY_IS_SIGNED	"SG"
+#define MY_IS_SIGNED_STR	"SG"
 #else
-#define MY_IS_SIGNED	""
+#define MY_IS_SIGNED_STR	""
 #endif
 
 //#define MYF(x)	(myF(PSTR(x)))
@@ -111,10 +116,12 @@ extern char rp_buffer[25];
 extern MyMessage _msgv;
 extern bool rp_first_loop;
 extern byte rp_sensors_count;
+extern uint32_t _sleepTime;
+//extern uint32_t rp_sleepTime;
 class RpSensor;
 extern RpSensor* _rpsensors[RP_MAX_SENSORS];
 //extern byte id_binary;
-
+extern void setRFLevel(uint8_t);
 
 class RpSensor {
 	public:
@@ -154,6 +161,8 @@ unsigned int EEPROMReadInt(int p_address);
 void EEReadInt(int pos, int* data);
 void EEReadByte(int pos, byte* data);
 uint32_t calcTimestamp(char u, byte v);
+
+void rp_rf_level_apply();
 
 void rp_presentation();
 void rp_receive(const MyMessage &message);
